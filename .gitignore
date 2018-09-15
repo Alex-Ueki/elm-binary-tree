@@ -107,3 +107,4 @@ venv.bak/
 elm-stuff/
 
 .DS_Store
+.idea
