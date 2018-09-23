@@ -6,13 +6,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Binary Tree</title>
   <link rel="stylesheet" href="https://unpkg.com/purecss@0.6.1/build/pure-min.css" integrity="sha384-CCTZv2q9I9m3UOxRLaJneXrrqKwUNOzZ6NGEUMwHtShDJ+nCoiXJCAgi05KfkLGY" crossorigin="anonymous">
+  <script src="{{ url_for('static', filename='builds/binaryTree.js') }}"></script>
 </head>
 
 <body>
-  <div id="app"></div>
-  <script src="{{ url_for('static', filename='builds/binaryTree.js') }}"></script>
+  <div id="elm"></div>
   <script>
-    var app = Elm.Main.embed(document.getElementById("app"));
+    var app = Elm.Main.init({
+      node: document.getElementById('elm')
+    });
   </script>
 </body>
 

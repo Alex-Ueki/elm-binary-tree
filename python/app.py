@@ -22,4 +22,4 @@ def login():
 @app.route('/tree/<username>')
 def tree(username):
     # Username is currently not used, but added in as an example
-    return render_template('binarytree.html')
+    return render_template('binaryTree.html')

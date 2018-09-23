@@ -1,18 +1,19 @@
-module Login exposing (Model, Msg(..), init, jsonUsername, login, main, makeUsernameRequest, sendUsername, subscriptions, update, view)
+module Login exposing (main)
 
-import Html exposing (Attribute, Html, button, div, input, text)
-import Html.Attributes exposing (..)
-import Html.Events exposing (onClick, onInput)
-import Http exposing (..)
-import Json.Decode exposing (..)
-import Json.Encode exposing (..)
-import Navigation exposing (..)
+import Browser
+import Browser.Navigation
+import Html
+import Html.Attributes as Attributes
+import Html.Events as Events
+import Http
+import Json.Decode
+import Json.Encode
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
-        { init = ( init, Cmd.none )
+    Browser.element
+        { init = init
         , view = view
         , update = update
         , subscriptions = subscriptions
@@ -25,14 +26,13 @@ type alias Model =
     }
 
 
-init : Model
-init =
-    { username = "Alex", response = Nothing }
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { username = "Alex", response = Nothing }, Cmd.none )
 
 
 type Msg
-    = NoOp
-    | SubmitForm
+    = SubmitForm
     | SetUsername String
     | Response (Result Http.Error String)
 
@@ -40,9 +40,6 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        NoOp ->
-            ( model, Cmd.none )
-
         SubmitForm ->
             ( { model | response = Nothing }, login model )
 
@@ -50,10 +47,32 @@ update msg model =
             ( { model | username = username }, Cmd.none )
 
         Response (Ok response) ->
-            ( { model | response = Just response }, Navigation.load response )
+            ( { model | response = Just response }, Browser.Navigation.load response )
 
         Response (Err error) ->
-            ( { model | response = Just (toString error) }, Cmd.none )
+            case error of
+                Http.BadUrl httpMsg ->
+                    ( { model | response = Just httpMsg }, Cmd.none )
+
+                Http.Timeout ->
+                    ( { model | response = Just "It took too long to get a response." }
+                    , Cmd.none
+                    )
+
+                Http.NetworkError ->
+                    ( { model | response = Just "Encountered a network error." }
+                    , Cmd.none
+                    )
+
+                Http.BadStatus responseRecord ->
+                    ( { model | response = String.fromInt responseRecord.status.code |> Just }
+                    , Cmd.none
+                    )
+
+                Http.BadPayload debug responseRecord ->
+                    ( { model | response = Just debug }
+                    , Cmd.none
+                    )
 
 
 
@@ -62,7 +81,7 @@ update msg model =
 -- Http.send Response: Request String -> Cmd Msg
 
 
-sendUsername : Request String -> Cmd Msg
+sendUsername : Http.Request String -> Cmd Msg
 sendUsername =
     Http.send Response
 
@@ -75,7 +94,7 @@ sendUsername =
 -- (Json.Encode.string model.username) Http.jsonBody: Body
 
 
-jsonUsername : Model -> Body
+jsonUsername : Model -> Http.Body
 jsonUsername model =
     Json.Encode.string model.username |> Http.jsonBody
 
@@ -84,7 +103,7 @@ jsonUsername model =
 -- Json.Decode.string: Decoder String
 
 
-makeUsernameRequest : Model -> Request String
+makeUsernameRequest : Model -> Http.Request String
 makeUsernameRequest model =
     Http.post "login" (jsonUsername model) Json.Decode.string
 
@@ -107,12 +126,9 @@ subscriptions model =
 -- VIEWS
 
 
-view : Model -> Html Msg
+view : Model -> Html.Html Msg
 view model =
-    div []
-        [ div []
-            [ input [ placeholder "username", onInput SetUsername ] []
-            , button [ onClick SubmitForm ] [ text "Login" ]
-            ]
-        , div [] [ text (toString model) ]
+    Html.div []
+        [ Html.input [ Attributes.placeholder "username", Events.onInput SetUsername ] []
+        , Html.button [ Events.onClick SubmitForm ] [ Html.text "Login" ]
         ]

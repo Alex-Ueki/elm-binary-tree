@@ -1,44 +1,51 @@
-module Main exposing (Comp(..), Model, Msg(..), Tree(..), buildButton, buttonStyle, compVal, delete, depth, displayTree, displayView, findValue, headerView, inputStyle, inputsView, insert, logView, main, mapTree, max, min, model, nodeStyle, titleStyle, update, view)
+module Main exposing (main)
 
+import Browser
 import Html exposing (..)
-import Html.Attributes exposing (..)
-import Html.Events exposing (onClick, onInput, onSubmit)
-import String
+import Html.Attributes as Attributes
+import Html.Events as Events
 
 
 
 -- BASE TYPE DEFINITIONS
-
 -- Defines the comparison of values into 3 types
+
+
 type Comp
     = Less
     | Equal
     | Greater
 
 
+
 -- Binary trees have a recursive type definition
 -- the 'a' means the type can be anything, but in practice this is an int
 -- You can use this for other values as long as you implement a comparator method
 -- i.e compare: a -> a -> Comp
+
+
 type Tree a
     = Empty
     | Node (Tree a) a (Tree a)
 
 
+
 -- Model contains an integer binary tree, current input, and a log
+
+
 type alias Model =
     { tree : Tree Int, input : String, log : List String }
 
 
-model : Model
-model =
+init : Model
+init =
     { tree = Empty, input = "", log = [] }
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.beginnerProgram
-        { model = model
+    Browser.sandbox
+        { init = init
         , view = view
         , update = update
         }
@@ -61,40 +68,41 @@ compVal val nodeVal =
         Greater
 
 
+insertValue : Int -> Tree Int -> ( Tree Int, String )
+insertValue value tree =
+    case tree of
+        Empty ->
+            ( Node Empty value Empty
+            , String.fromInt value ++ " was inserted into the tree"
+            )
+
+        Node left nodeVal right ->
+            case compVal value nodeVal of
+                Less ->
+                    let
+                        ( l, str ) =
+                            insertValue value left
+                    in
+                    ( Node l nodeVal right, str )
+
+                Equal ->
+                    ( Node left nodeVal right
+                    , String.fromInt nodeVal ++ " was already in the tree"
+                    )
+
+                Greater ->
+                    let
+                        ( r, str ) =
+                            insertValue value right
+                    in
+                    ( Node left nodeVal r, str )
+
+
 insert : Int -> Model -> Model
 insert value model =
     let
-        insertValue tree =
-            case tree of
-                Empty ->
-                    ( Node Empty value Empty
-                    , toString value ++ " was inserted into the tree"
-                    )
-
-                Node left nodeVal right ->
-                    case compVal value nodeVal of
-                        Less ->
-                            let
-                                ( l, str ) =
-                                    insertValue left
-                            in
-                            ( Node l nodeVal right, str )
-
-                        Equal ->
-                            ( Node left nodeVal right
-                            , toString nodeVal ++ " was already in the tree"
-                            )
-
-                        Greater ->
-                            let
-                                ( r, str ) =
-                                    insertValue right
-                            in
-                            ( Node left nodeVal r, str )
-    in
-    let
         ( newTree, newLog ) =
-            insertValue model.tree
+            insertValue value model.tree
     in
     { model
         | input = ""
@@ -155,56 +163,57 @@ max tree =
                     max next
 
 
-delete : Int -> Model -> Model
-delete val model =
-    let
-        deleteValue value tree =
-            case tree of
-                Empty ->
-                    ( Empty, toString value ++ " was not found" )
+deleteValue : Int -> Tree Int -> ( Tree Int, String )
+deleteValue value tree =
+    case tree of
+        Empty ->
+            ( Empty, String.fromInt value ++ " was not found" )
 
-                Node left nodeVal right ->
-                    case compVal value nodeVal of
-                        Less ->
-                            let
-                                ( l, str ) =
-                                    deleteValue value left
-                            in
-                            ( Node l nodeVal right, str )
+        Node left nodeVal right ->
+            case compVal value nodeVal of
+                Less ->
+                    let
+                        ( l, str ) =
+                            deleteValue value left
+                    in
+                    ( Node l nodeVal right, str )
 
-                        Greater ->
-                            let
-                                ( r, str ) =
-                                    deleteValue value right
-                            in
-                            ( Node left nodeVal r, str )
+                Greater ->
+                    let
+                        ( r, str ) =
+                            deleteValue value right
+                    in
+                    ( Node left nodeVal r, str )
 
-                        Equal ->
+                Equal ->
+                    let
+                        str =
+                            String.fromInt value ++ " was found and deleted"
+                    in
+                    case max left of
+                        -- Check left tree
+                        Just maxLeft ->
                             let
-                                str =
-                                    toString value ++ " was found and deleted"
+                                ( replacement, _ ) =
+                                    deleteValue maxLeft left
                             in
-                            case max left of
-                                -- Check left tree
-                                Just maxLeft ->
+                            ( Node replacement maxLeft right, str )
+
+                        Nothing ->
+                            case min right of
+                                Just minRight ->
                                     let
                                         ( replacement, _ ) =
-                                            deleteValue maxLeft left
+                                            deleteValue minRight right
                                     in
-                                    ( Node replacement maxLeft right, str )
+                                    ( Node left minRight replacement, str )
 
                                 Nothing ->
-                                    case min right of
-                                        Just minRight ->
-                                            let
-                                                ( replacement, _ ) =
-                                                    deleteValue minRight right
-                                            in
-                                            ( Node left minRight replacement, str )
+                                    ( Empty, str )
 
-                                        Nothing ->
-                                            ( Empty, str )
-    in
+
+delete : Int -> Model -> Model
+delete val model =
     let
         ( newTree, newLog ) =
             deleteValue val model.tree
@@ -224,8 +233,11 @@ depth tree =
 
         Node left _ right ->
             let
-                depthLeft = depth left
-                depthRight = depth right
+                depthLeft =
+                    depth left
+
+                depthRight =
+                    depth right
             in
             if depthLeft < depthRight then
                 1 + depthRight
@@ -234,7 +246,10 @@ depth tree =
                 1 + depthLeft
 
 
+
 -- Maps a function to all values in the tree
+
+
 mapTree : (a -> a) -> Tree a -> Tree a
 mapTree func tree =
     case tree of
@@ -265,39 +280,39 @@ update msg model =
 
         Insert ->
             case String.toInt model.input of
-                Err e ->
+                Nothing ->
                     { model
                         | input = ""
-                        , log = e :: model.log
+                        , log = (model.input ++ " is not a valid integer") :: model.log
                     }
 
-                Ok value ->
+                Just value ->
                     insert value model
 
         Delete ->
             case String.toInt model.input of
-                Err e ->
+                Nothing ->
                     { model
                         | input = ""
-                        , log = e :: model.log
+                        , log = (model.input ++ " is not a valid integer") :: model.log
                     }
 
-                Ok value ->
+                Just value ->
                     delete value model
 
         AddAll ->
             case String.toInt model.input of
-                Err e ->
+                Nothing ->
                     { model
                         | input = ""
-                        , log = e :: model.log
+                        , log = (model.input ++ " is not a valid integer") :: model.log
                     }
 
-                Ok value ->
+                Just value ->
                     { model
                         | input = ""
                         , tree = mapTree (\n -> n + value) model.tree
-                        , log = (toString value ++ " added to values in the tree") :: model.log
+                        , log = (String.fromInt value ++ " added to values in the tree") :: model.log
                     }
 
         Clear ->
@@ -314,33 +329,35 @@ update msg model =
 -- Styles
 
 
-buttonStyle : Attribute Msg
+mapAttributeStyles : List ( String, String ) -> List (Attribute Msg)
+mapAttributeStyles =
+    List.map (\( a, b ) -> Attributes.style a b)
+
+
+buttonStyle : List (Attribute Msg)
 buttonStyle =
-    style
-        [ ( "height", "30px" )
-        , ( "width", "100%" )
-        ]
+    mapAttributeStyles [ ( "height", "30px" ), ( "width", "100%" ) ]
 
 
-inputStyle : Attribute Msg
+inputStyle : List (Attribute Msg)
 inputStyle =
-    style
+    mapAttributeStyles
         [ ( "height", "30px" )
         , ( "width", "97%" )
         ]
 
 
-titleStyle : Attribute Msg
+titleStyle : List (Attribute Msg)
 titleStyle =
-    style
+    mapAttributeStyles
         [ ( "height", "10%" )
         , ( "text", "bold" )
         ]
 
 
-nodeStyle : Attribute Msg
+nodeStyle : List (Attribute Msg)
 nodeStyle =
-    style
+    mapAttributeStyles
         [ ( "border-color", "black" )
         , ( "border-width", "1px" )
         , ( "border-style", "solid" )
@@ -353,20 +370,21 @@ nodeStyle =
 
 buildButton : Msg -> String -> Html Msg
 buildButton msg txt =
-    div [ buttonStyle, class "pure-button-active" ]
-        [ button [ onClick msg, buttonStyle ] [ text txt ] ]
+    div (Attributes.class "pure-button-active" :: buttonStyle)
+        [ button (Events.onClick msg :: buttonStyle) [ text txt ] ]
 
 
 inputsView : Model -> Html Msg
 inputsView model =
-    div [ class "pure-u-1-5" ]
+    div [ Attributes.class "pure-u-1-5" ]
         [ input
-            [ type_ "text"
-            , placeholder "Value must be an integer"
-            , value model.input
-            , onInput Uncommitted
-            , inputStyle
-            ]
+            ([ Attributes.type_ "text"
+             , Attributes.placeholder "Value must be an integer"
+             , Attributes.value model.input
+             , Events.onInput Uncommitted
+             ]
+                ++ inputStyle
+            )
             []
         , buildButton Insert "Insert value into tree"
         , buildButton Delete "Delete value from tree"
@@ -375,28 +393,27 @@ inputsView model =
         ]
 
 
-displayTree : Tree a -> List (Html Msg)
+displayTree : Tree Int -> List (Html Msg)
 displayTree tree =
     case tree of
         Empty ->
             [ text "-" ]
 
         Node left value right ->
-            [ div [ class "pure-u-1-1", nodeStyle ]
-                [ text (toString value) ]
-            , div [ class "pure-u-1-2" ]
+            [ div (Attributes.class "pure-u-1-1" :: nodeStyle)
+                [ text (String.fromInt value) ]
+            , div [ Attributes.class "pure-u-1-2" ]
                 (displayTree left)
-            , div [ class "pure-u-1-2" ]
+            , div [ Attributes.class "pure-u-1-2" ]
                 (displayTree right)
             ]
 
 
 displayView : Model -> Html Msg
 displayView model =
-    div [ class "pure-u-3-5", align "center" ]
-        [ div [ titleStyle ] [ text "Binary Tree" ]
-        , text (toString model.tree)
-        , div [ align "center" ] (displayTree model.tree)
+    div [ Attributes.class "pure-u-3-5", Attributes.align "center" ]
+        [ div titleStyle [ text "Binary Tree" ]
+        , div [ Attributes.align "center" ] (displayTree model.tree)
         ]
 
 
@@ -404,29 +421,28 @@ logView : Model -> Html Msg
 logView model =
     let
         divLog =
-            div [ class "pure-u-1-5", align "right" ]
+            div [ Attributes.class "pure-u-1-5", Attributes.align "right" ]
     in
     let
         buildText log =
             case log of
                 [] ->
-                    -- [List Html]
-                    [ div [ align "right" ] [ text "" ] ]
+                    [ div [ Attributes.align "right" ] [ text "" ] ]
 
                 hd :: tl ->
-                    div [ align "right" ] [ text (hd ++ "\n") ] :: buildText tl
+                    div [ Attributes.align "right" ] [ text (hd ++ "\n") ] :: buildText tl
     in
     divLog (buildText model.log)
 
 
 headerView : Html Msg
 headerView =
-    div [ class "Display" ] [ text "Binary Tree" ]
+    div [ Attributes.class "Display" ] [ text "Binary Tree" ]
 
 
 view : Model -> Html Msg
 view model =
-    div [ class "pure-g" ]
+    div [ Attributes.class "pure-g" ]
         [ inputsView model
         , displayView model
         , logView model
