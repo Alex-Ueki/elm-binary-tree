@@ -28,7 +28,7 @@ type alias Model =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { username = "Alex", response = Nothing }, Cmd.none )
+    ( { username = "Alexander", response = Nothing }, Cmd.none )
 
 
 type Msg
